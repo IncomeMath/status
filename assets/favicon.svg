@@ -1,0 +1,16 @@
+<!-- The WorkdayTracker emblem, generated from src/app/theme/logo.tsx. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200">
+  <circle r="100" fill="#1f469e"/>
+  <g fill="none" stroke="#fff" stroke-width="7.4">
+    <path d="M68.25 0 A68.25 68.25 0 1 1 0 -68.25"/>
+    <path d="M0 -76.1 A76.1 76.1 0 0 1 76.1 0"/>
+    <path d="M39.60 39.60 L48.26 48.26 M-39.60 39.60 L-48.26 48.26 M-39.60 -39.60 L-48.26 -48.26"/>
+  </g>
+  <g fill="#fff">
+    <rect x="-3" y="-79.9" width="7.4" height="84.3"/>
+    <rect x="-3" y="-4.4" width="82.9" height="7.4"/>
+    <rect x="-3" y="47.6" width="7.4" height="24.35"/>
+    <rect x="-71.95" y="-4.4" width="24.35" height="7.4"/>
+    <polygon points="16.47,-45.74 22.39,-45.64 25.34,-29.83 29.02,-45.74 34.01,-45.74 37.68,-29.73 40.64,-45.64 42.07,-45.54 45.54,-42.07 45.74,-41.25 41.25,-20.24 34.93,-20.24 31.46,-34.73 28.1,-20.24 21.77,-20.24"/>
+  </g>
+</svg>
