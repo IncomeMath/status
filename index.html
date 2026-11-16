@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkdayTracker Status</title>
+<meta name="description" content="Live status of the WorkdayTracker web app, desktop recording and reports, checked every five minutes, with 90 days of history.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* The web app's tokens (frontend/src/app/theme/tokens.ts in the product repo), both schemes. */
+  :root {
+    --background: #f5f7fa;
+    --paper: #ffffff;
+    --divider: #dfe4ec;
+    --text: #1b2029;
+    --text-secondary: #5a6578;
+    --primary: #1f469e;
+    --success: #1b7f4f;
+    --warning: #9a5b00;
+    --warning-tint: #fdf0d5;
+    --error: #b3261e;
+    --error-tint: #fbe3e1;
+    --day-clear: #c9d1dd;
+    --day-trouble: #9a5b00;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --background: #0f141b;
+      --paper: #171d26;
+      --divider: #2a313d;
+      --text: #e9edf3;
+      --text-secondary: #a3aec0;
+      --primary: #8fabee;
+      --success: #5ccf94;
+      --warning: #f0b254;
+      --warning-tint: #3d2a08;
+      --error: #f28b84;
+      --error-tint: #3f1b19;
+      --day-clear: #414a5a;
+      --day-trouble: #f0b254;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --background: #0f141b;
+    --paper: #171d26;
+    --divider: #2a313d;
+    --text: #e9edf3;
+    --text-secondary: #a3aec0;
+    --primary: #8fabee;
+    --success: #5ccf94;
+    --warning: #f0b254;
+    --warning-tint: #3d2a08;
+    --error: #f28b84;
+    --error-tint: #3f1b19;
+    --day-clear: #414a5a;
+    --day-trouble: #f0b254;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--text);
+    font: 15px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  /* Figures line up; only on figures, since tabular forms also widen Inter's hyphen. */
+  .when, .uptime, .day-detail { font-variant-numeric: tabular-nums; }
+  a { color: var(--primary); }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 48px; }
+
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+  header img { width: 36px; height: 36px; }
+  header h1 { font-size: 20px; font-weight: 600; margin: 0; flex: 1; min-width: 200px; }
+  header a { font-size: 14px; text-decoration: none; }
+
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--divider);
+    border-radius: 8px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 15px; font-weight: 600; margin: 0; padding: 14px 20px; border-bottom: 1px solid var(--divider); }
+
+  .summary { display: flex; align-items: center; gap: 14px; padding: 20px; }
+  .summary .state-icon { width: 32px; height: 32px; flex: none; }
+  .summary p { margin: 0; }
+  .summary .headline { font-size: 18px; font-weight: 600; }
+  .summary .when { color: var(--text-secondary); font-size: 14px; }
+  .summary.trouble-degraded { background: var(--warning-tint); border-radius: 8px; }
+  .summary.trouble-down, .summary.trouble-unknown { background: var(--error-tint); border-radius: 8px; }
+
+  .component { padding: 16px 20px; border-top: 1px solid var(--divider); }
+  .component:first-of-type { border-top: 0; }
+  .component .line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .component .name { font-weight: 500; flex: 1; min-width: 160px; }
+  .component .state { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+  .component .state svg { width: 18px; height: 18px; }
+  .component .uptime { color: var(--text-secondary); font-size: 14px; width: 100%; }
+  @media (min-width: 600px) { .component .uptime { width: auto; min-width: 150px; text-align: right; } }
+
+  .strip { display: flex; gap: 2px; height: 32px; margin-top: 10px; }
+  .strip span { flex: 1; min-width: 2px; border-radius: 2px; background: var(--day-clear); }
+  .strip span.trouble { background: var(--day-trouble); }
+  .strip span.none { background: transparent; box-shadow: inset 0 0 0 1px var(--divider); }
+  .strip span:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  /* 90 days on a phone: thinner gaps and no minimum, so the strip fits the width. */
+  @media (max-width: 599px) { .strip { gap: 1px; } .strip span { min-width: 0; border-radius: 1px; } }
+  .axis { display: flex; justify-content: space-between; color: var(--text-secondary); font-size: 12px; margin-top: 4px; }
+
+  .day-detail { color: var(--text-secondary); font-size: 13px; min-height: 20px; margin-top: 4px; }
+
+  .key { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 20px; border-top: 1px solid var(--divider); color: var(--text-secondary); font-size: 13px; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+  .key i { display: inline-block; width: 10px; height: 16px; border-radius: 2px; }
+
+  .skeleton { height: 80px; margin: 20px; border-radius: 6px; background: var(--divider); opacity: .5; }
+
+  footer { color: var(--text-secondary); font-size: 13px; }
+  footer p { margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="assets/favicon.svg" alt="">
+    <h1>WorkdayTracker Status</h1>
+    <a href="https://workdaytracker.com">workdaytracker.com</a>
+  </header>
+
+  <section class="panel" aria-live="polite">
+    <div id="summary"><div class="skeleton" aria-busy="true" aria-label="Loading the status"></div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Last 90 days</h2>
+    <div id="components"><div class="skeleton" aria-busy="true"></div></div>
+    <div class="key" aria-hidden="true">
+      <span><i style="background: var(--day-clear)"></i>No trouble</span>
+      <span><i style="background: var(--day-trouble)"></i>Some time down or degraded</span>
+      <span><i style="box-shadow: inset 0 0 0 1px var(--divider)"></i>No data</span>
+    </div>
+  </section>
+
+  <footer>
+    <p>WorkdayTracker checks every part of the product every five minutes from Google Cloud: that the web app and the API answer, that desktop recordings arrive, and that timesheets, AI day insights and alerts keep up.</p>
+    <p>Degraded means a part works but is slower or behind; down means it does not work. Days are in UTC.</p>
+  </footer>
+</main>
+
+<script>
+  // The status job (services/jobs/status-checks in the product repo) replaces this file every
+  // five minutes. `?src=` reads another file, for working on this page locally.
+  const SOURCE = new URLSearchParams(location.search).get('src')
+    || 'https://storage.googleapis.com/incomemath.com/status/status.json';
+  const REFRESH_MS = 60_000;
+
+  const ICONS = {
+    ok: '<svg class="state-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--success)" stroke-width="2"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    degraded: '<svg class="state-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9.5 17h-19z" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.2v.3" stroke="var(--warning)" stroke-width="2" stroke-linecap="round"/></svg>',
+    down: '<svg class="state-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--error)" stroke-width="2"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="var(--error)" stroke-width="2" stroke-linecap="round"/></svg>',
+    unknown: '<svg class="state-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--error)" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7M12 17.2v.3" fill="none" stroke="var(--error)" stroke-width="2" stroke-linecap="round"/></svg>',
+  };
+  const WORDS = { ok: 'Operational', degraded: 'Degraded', down: 'Down', unknown: 'Unknown' };
+
+  let status = null;
+  let loadError = null;
+
+  const escape = (text) => String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+  function ago(iso) {
+    const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 48) return `${hours} h ago`;
+    return `${Math.round(hours / 24)} days ago`;
+  }
+
+  function duration(seconds) {
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} min`;
+    const h = Math.floor(minutes / 60), m = minutes % 60;
+    return m ? `${h} h ${m} min` : `${h} h`;
+  }
+
+  const dayName = (day) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' });
+
+  const isStale = (s) => Date.now() - new Date(s.generated_at).getTime() > s.stale_after_seconds * 1000;
+
+  /** The 90 UTC days from history_from to today, each with its seconds or null when there is no record. */
+  function window90(component, from) {
+    const byDay = new Map(component.days.map((d) => [d.day, d]));
+    const out = [];
+    const start = new Date(`${from}T00:00:00Z`).getTime();
+    for (let i = 0; i < 90; i++) {
+      const day = new Date(start + i * 86_400_000).toISOString().slice(0, 10);
+      out.push({ day, seconds: byDay.get(day) ?? null });
+    }
+    return out;
+  }
+
+  function uptime(component) {
+    let up = 0, total = 0;
+    for (const d of component.days) { up += d.ok + d.degraded; total += d.ok + d.degraded + d.down; }
+    if (total === 0) return 'No data yet';
+    const share = (up / total) * 100;
+    const text = share === 100 ? '100' : share >= 99.99 ? '99.99' : share.toFixed(2);
+    return `${text}% up`;
+  }
+
+  function dayText(entry) {
+    const s = entry.seconds;
+    if (s === null) return `${dayName(entry.day)}: no data`;
+    const parts = [];
+    if (s.down) parts.push(`${duration(s.down)} down`);
+    if (s.degraded) parts.push(`${duration(s.degraded)} degraded`);
+    return `${dayName(entry.day)}: ${parts.length ? parts.join(', ') : 'no trouble'}`;
+  }
+
+  function renderSummary() {
+    const el = document.getElementById('summary');
+    if (status === null) {
+      el.innerHTML = loadError === null ? el.innerHTML : `
+        <div class="summary trouble-unknown">${ICONS.unknown}<div>
+          <p class="headline">The status could not be loaded</p>
+          <p class="when">${escape(loadError)}. Trying again every minute.</p></div></div>`;
+      return;
+    }
+    const stale = isStale(status);
+    const failing = status.components.filter((c) => c.state !== 'ok');
+    const down = failing.filter((c) => c.state === 'down');
+    let state, headline;
+    if (stale) { state = 'unknown'; headline = 'Our checks have stopped reporting'; }
+    else if (down.length) { state = 'down'; headline = `Down: ${down.map((c) => c.name).join(', ')}`; }
+    else if (failing.length) { state = 'degraded'; headline = `Degraded: ${failing.map((c) => c.name).join(', ')}`; }
+    else { state = 'ok'; headline = 'All systems operational'; }
+    const when = stale
+      ? `Last check ${ago(status.generated_at)}. The states below are from then.`
+      : `Checked ${ago(status.generated_at)}, every five minutes`;
+    el.innerHTML = `
+      <div class="summary${state === 'ok' ? '' : ` trouble-${state}`}">${ICONS[state]}<div>
+        <p class="headline">${escape(headline)}</p>
+        <p class="when">${escape(when)}</p></div></div>`;
+  }
+
+  function renderComponents() {
+    if (status === null) return;
+    const stale = isStale(status);
+    document.getElementById('components').innerHTML = status.components.map((c, index) => {
+      const state = stale ? 'unknown' : c.state;
+      const days = window90(c, status.history_from);
+      const bars = days.map((entry) => {
+        const s = entry.seconds;
+        const cls = s === null ? 'none' : s.down || s.degraded ? 'trouble' : '';
+        const text = escape(dayText(entry));
+        return `<span class="${cls}" tabindex="0" title="${text}" aria-label="${text}" data-text="${text}"></span>`;
+      }).join('');
+      return `
+        <div class="component">
+          <div class="line">
+            <span class="name">${escape(c.name)}</span>
+            <span class="state">${ICONS[state].replace('class="state-icon"', '')}${WORDS[state]}</span>
+            <span class="uptime">${escape(uptime(c))}</span>
+          </div>
+          <div class="strip" role="group" aria-label="${escape(c.name)}, the last 90 days" data-index="${index}">${bars}</div>
+          <div class="axis" aria-hidden="true"><span>90 days ago</span><span>Today</span></div>
+          <div class="day-detail" id="detail-${index}"></div>
+        </div>`;
+    }).join('');
+  }
+
+  // Hovering or focusing a day says what happened on it, under its strip, in words.
+  function showDay(event) {
+    const bar = event.target.closest('.strip span');
+    if (!bar) return;
+    const index = bar.parentElement.dataset.index;
+    document.getElementById(`detail-${index}`).textContent = bar.dataset.text;
+  }
+  document.addEventListener('mouseover', showDay);
+  document.addEventListener('focusin', showDay);
+
+  async function load() {
+    try {
+      const response = await fetch(SOURCE, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`The status file answered ${response.status}`);
+      status = await response.json();
+      loadError = null;
+    } catch (error) {
+      loadError = error instanceof Error ? error.message : String(error);
+    }
+    renderSummary();
+    renderComponents();
+  }
+
+  load();
+  setInterval(load, REFRESH_MS);
+  setInterval(renderSummary, 15_000);
+</script>
+</body>
+</html>
